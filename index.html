@@ -83,6 +83,9 @@ td.n{text-align:right;font-family:var(--mono)}
 details summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:13.5px;margin-top:8px}
 footer{margin-top:28px;font-size:12.5px;color:var(--muted)}
 @media (max-width:760px){.grid,.notes{grid-template-columns:1fr}.answer{grid-template-columns:1fr}}
+#tip{position:fixed;left:0;top:0;z-index:20;pointer-events:none;background:var(--ink);color:var(--bg);font:500 12.5px/1.45 var(--body);padding:7px 9px;border-radius:6px;max-width:260px;white-space:pre-line;box-shadow:0 4px 14px rgba(0,0,0,.18);opacity:0;transition:opacity .12s}
+#tip.show{opacity:1}
+[data-tip]{cursor:pointer}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -148,6 +151,7 @@ footer{margin-top:28px;font-size:12.5px;color:var(--muted)}
   </section>
   <section class="card" style="grid-column:1/-1"><h3>Sources</h3><p>All values come from the class-wise learning and enrolment tables in each year's ASER Pakistan national (rural) report, published by Idara-e-Taleem-o-Aagahi (ITA). The reports are linked, not copied.</p><div class="tablewrap" id="sources"></div></section>
 </div>
+<div id="tip" role="tooltip" aria-hidden="true"></div>
 <footer>Independent explorer built from published ASER Pakistan reports. ASER Pakistan data and reports © ITA / SAFED. Cite the original report and page shown with each figure.</footer>
 </div>
 
@@ -219,6 +223,13 @@ function srcLine(rec,y){
   if(!rec) return '';
   return 'Source: ASER Pakistan '+y+' national report, PDF p. '+rec.p+(rec.pp?' (printed p. '+esc(rec.pp)+')':'')+' · <a href="'+URL[y]+'#page='+rec.p+'" target="_blank" rel="noopener">open report</a>';
 }
+function pageTip(rec,y){ return rec?('ASER '+y+' report, PDF p. '+rec.p+(rec.pp?' (printed p. '+rec.pp+')':'')):''; }
+function flagTip(rec,y,g){ if(!rec) return ''; const f=[];
+  if(rec.f.includes('ru')) f.push('2025: rural and urban combined');
+  if(rec.f.includes('div3')) f.push('2012: 3-digit division');
+  if(g==='FATA'&&y>=2018) f.push('Reported as KP merged districts');
+  return f.length?'\n'+f.join('\n'):''; }
+const ta=s=>esc(s).replace(/\n/g,'&#10;');
 function flagsHTML(rec,y,g){
   if(!rec) return '';
   let f='';
@@ -262,7 +273,8 @@ function renderRank(){
   rows.forEach((d,i)=>{
     const y=top+i*rowH, sel=d.g===S.geo, isN=d.g==='Pakistan';
     const fill=sel?'var(--hi)':(isN?'var(--muted)':'var(--accent)');
-    s+='<g style="cursor:pointer" data-geo="'+esc(d.g)+'"><rect x="0" y="'+y+'" width="'+W+'" height="'+rowH+'" fill="transparent"/>';
+    const tip=GEOLABEL[d.g]+': '+fmt(d.v)+'%\n'+(S.mode==='learn'?('Class '+S.cls+', '+THRESH[S.subj].find(x=>x[0]==S.th)[1]):(ENR.find(x=>x[0]===S.enr)[1]+', ages '+S.band.replace('-','–')))+'\n'+pageTip(d.rec,S.year)+flagTip(d.rec,S.year,d.g)+'\nClick to select';
+    s+='<g style="cursor:pointer" data-geo="'+esc(d.g)+'" data-tip="'+ta(tip)+'"><rect x="0" y="'+y+'" width="'+W+'" height="'+rowH+'" fill="transparent"/>';
     s+='<text x="'+(left-8)+'" y="'+(y+17)+'" text-anchor="end" font-size="12.5" '+(sel?'font-weight="700"':'')+'>'+esc(SHORT[d.g])+(d.rec&&d.rec.f.includes('ru')?'*':'')+'</text>';
     s+='<rect x="'+left+'" y="'+(y+5)+'" width="'+Math.max(1,sx(d.v)-left)+'" height="'+(rowH-10)+'" rx="2" fill="'+fill+'" opacity="'+(isN&&!sel?0.55:0.9)+'"/>';
     s+='<text x="'+(sx(d.v)+5)+'" y="'+(y+17)+'" font-size="12" font-family="IBM Plex Mono, monospace">'+fmt(d.v)+'</text></g>';
@@ -295,6 +307,7 @@ function renderTrend(){
     const ru=p.rec&&p.rec.f.includes('ru'), sel=p.y===S.year;
     const cx=x(p.y), cy=yy(p.v);
     s+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(sel?5.5:4)+'" fill="'+(ru?'var(--panel)':(sel?'var(--hi)':'var(--accent)'))+'" stroke="'+(sel?'var(--hi)':'var(--accent)')+'" stroke-width="2"/>';
+    s+='<circle cx="'+cx+'" cy="'+cy+'" r="11" fill="transparent" data-tip="'+ta(GEOLABEL[S.geo]+', '+p.y+': '+fmt(p.v)+'%'+(p.rural!=null?'\nRural only: '+fmt(p.rural)+'%':'')+'\n'+pageTip(p.rec,p.y)+flagTip(p.rec,p.y,S.geo))+'"/>';
     s+='<text x="'+cx+'" y="'+(cy-9)+'" text-anchor="middle" font-size="11" font-family="IBM Plex Mono, monospace">'+fmt(p.v)+'</text>';
     if(p.rec&&p.rec.f.includes('div3')&&S.mode==='learn'&&S.subj==='arithmetic'&&S.th===6) s+='<text x="'+cx+'" y="'+(cy+17)+'" text-anchor="middle" font-size="10" fill="var(--warn)">3-digit</text>';
   });
@@ -326,7 +339,7 @@ function renderLadder(){
       if(r.f.includes('dup')){ s+='<text x="'+L+'" y="'+(y+16)+'" font-size="12" fill="var(--warn)">withheld: duplicated table in the 2025 report</text>'; continue; }
       let acc=0;
       r.v.forEach((v,i)=>{ if(v==null||v<=0) return; const w=sx(v); const inHead=i>=S.th;
-        s+='<rect x="'+(L+sx(acc))+'" y="'+(y+3)+'" width="'+w+'" height="'+(rowH-6)+'" fill="'+cols[i]+'" '+(inHead&&c===S.cls?'stroke="var(--hi)" stroke-width="2"':'')+'/>';
+        s+='<rect x="'+(L+sx(acc))+'" y="'+(y+3)+'" width="'+w+'" height="'+(rowH-6)+'" fill="'+cols[i]+'" '+(inHead&&c===S.cls?'stroke="var(--hi)" stroke-width="2"':'')+' data-tip="'+ta('Class '+c+' · highest level: '+lv[i]+'\n'+fmt(v)+'% of children'+'\nAt this level or above: '+fmt(r.v.slice(i).reduce((a,b)=>a+(b||0),0))+'%\n'+pageTip(r,S.year)+flagTip(r,S.year,S.geo))+'"/>';
         if(w>26) s+='<text x="'+(L+sx(acc)+w/2)+'" y="'+(y+16)+'" text-anchor="middle" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="'+(i>=3?'var(--bg)':'var(--ink)')+'">'+fmt(v)+'</text>';
         acc+=v; });
       if(r.f.includes('sum')) s+='<text x="'+(W-R)+'" y="'+(y+16)+'" text-anchor="end" font-size="11" fill="var(--warn)">sums to '+fmt(r.v.reduce((a,b)=>a+(b||0),0))+'</text>';
@@ -352,7 +365,7 @@ function renderLadder(){
       if(!r){ s+='<text x="'+L+'" y="'+(y+19)+'" font-size="12" class="m">not published</text>'; return; }
       rowsOut.push(r); let acc=0;
       parts.forEach(([key],i)=>{ const v=r.v[key]; if(v==null||v<=0) return; const w=sx(v);
-        s+='<rect x="'+(L+sx(acc))+'" y="'+(y+4)+'" width="'+w+'" height="'+(rowH-8)+'" fill="'+pc[i]+'"/>';
+        s+='<rect x="'+(L+sx(acc))+'" y="'+(y+4)+'" width="'+w+'" height="'+(rowH-8)+'" fill="'+pc[i]+'" data-tip="'+ta('Ages '+b.replace('-','–')+' · '+parts[i][1]+'\n'+fmt(v)+'% of children\n'+pageTip(r,S.year)+flagTip(r,S.year,S.geo))+'"/>';
         if(w>26) s+='<text x="'+(L+sx(acc)+w/2)+'" y="'+(y+19)+'" text-anchor="middle" font-size="10.5" font-family="IBM Plex Mono, monospace" fill="'+(i<=1?'var(--bg)':'var(--ink)')+'">'+fmt(v)+'</text>';
         acc+=v; });
     });
@@ -382,13 +395,14 @@ function renderMultiples(){
     for(const t of [0,50,100]){ s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy(t)+'" y2="'+yy(t)+'" stroke="var(--rule)"/><text x="'+(L-5)+'" y="'+(yy(t)+3.5)+'" text-anchor="end" font-size="9.5" class="m">'+t+'</text>'; }
     for(const y of [2012,2015,2018,2021,2025]) s+='<text x="'+x(y)+'" y="'+(H-5)+'" text-anchor="middle" font-size="9.5" class="m">'+y+'</text>';
     for(const [name,col,f] of GSER){
-      const pts=YEARS.map(y=>{const r=f(y,g); return {y,v:r.v,ru:!!(r.rec&&r.rec.f.includes('ru'))};});
+      const pts=YEARS.map(y=>{const r=f(y,g); return {y,v:r.v,rec:r.rec,rural:r.rural,ru:!!(r.rec&&r.rec.f.includes('ru'))};});
       // rural line, broken wherever a round has no comparable value
       let d='',pen=false;
       for(const p of pts){ if(p.ru) continue; if(p.v==null){pen=false;continue;} d+=(pen?'L':'M')+x(p.y).toFixed(1)+' '+yy(p.v).toFixed(1); pen=true; }
       if(d) s+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linejoin="round"/>';
       for(const p of pts){ if(p.v==null) continue;
-        s+='<circle cx="'+x(p.y).toFixed(1)+'" cy="'+yy(p.v).toFixed(1)+'" r="'+(p.ru?3.2:2.2)+'" fill="'+(p.ru?'var(--panel)':col)+'" stroke="'+col+'" stroke-width="'+(p.ru?1.6:0)+'"><title>'+esc(name)+', '+p.y+': '+fmt(p.v)+'%</title></circle>'; }
+        s+='<circle cx="'+x(p.y).toFixed(1)+'" cy="'+yy(p.v).toFixed(1)+'" r="'+(p.ru?3.2:2.2)+'" fill="'+(p.ru?'var(--panel)':col)+'" stroke="'+col+'" stroke-width="'+(p.ru?1.6:0)+'"/>';
+        s+='<circle cx="'+x(p.y).toFixed(1)+'" cy="'+yy(p.v).toFixed(1)+'" r="7" fill="transparent" data-tip="'+ta(GEOLABEL[g]+', '+p.y+'\n'+name+': '+fmt(p.v)+'%'+(p.rural!=null?'\nRural only: '+fmt(p.rural)+'%':'')+'\n'+pageTip(p.rec,p.y)+flagTip(p.rec,p.y,g))+'"/>'; }
     }
     s+='</svg>';
     out+='<div class="mini'+(g===S.geo?' on':'')+'" tabindex="0" role="button" data-geo="'+esc(g)+'"><h3>'+esc(GEOLABEL[g])+'</h3>'+s+'</div>';
@@ -422,6 +436,19 @@ function render(){
   document.querySelectorAll('.mini').forEach(n=>n.classList.toggle('on',n.dataset.geo===S.geo));
 }
 renderMultiples();
+(function(){
+  const tip=document.getElementById('tip'); let timer=null;
+  function place(x,y){ const r=tip.getBoundingClientRect(); let L=x+14, T=y+14;
+    if(L+r.width>window.innerWidth-8) L=x-r.width-14; if(L<8) L=8;
+    if(T+r.height>window.innerHeight-8) T=y-r.height-14; if(T<8) T=8;
+    tip.style.transform='translate('+Math.round(L)+'px,'+Math.round(T)+'px)'; }
+  function show(el,x,y){ tip.textContent=el.getAttribute('data-tip'); tip.classList.add('show'); place(x,y); }
+  function hide(){ tip.classList.remove('show'); }
+  document.addEventListener('pointerover',e=>{ if(e.pointerType==='touch') return; const el=e.target.closest&&e.target.closest('[data-tip]'); if(el) show(el,e.clientX,e.clientY); else hide(); });
+  document.addEventListener('pointermove',e=>{ if(e.pointerType!=='touch'&&tip.classList.contains('show')) place(e.clientX,e.clientY); });
+  document.addEventListener('pointerdown',e=>{ if(e.pointerType!=='touch') return; const el=e.target.closest&&e.target.closest('[data-tip]'); if(!el){hide();return;} show(el,e.clientX,e.clientY); clearTimeout(timer); timer=setTimeout(hide,3000); });
+  window.addEventListener('scroll',hide,{passive:true});
+})();
 renderSources(); render();
 })();
 </script>
