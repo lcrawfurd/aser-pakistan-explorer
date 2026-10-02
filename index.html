@@ -374,7 +374,7 @@ const GSER=[['Read a story (Class 5)','var(--s1)',(y,g)=>learn(y,g,'language',5,
             ['Out of school, ages 6–16','var(--s4)',(y,g)=>enrol(y,g,'6-16','oos')]];
 function renderMultiples(){
   document.getElementById('glance-legend').innerHTML=GSER.map(s=>'<span><i style="background:'+s[1]+'"></i>'+esc(s[0])+'</span>').join('')+'<span><i style="background:var(--panel);border:2px solid var(--muted)"></i>2025, rural + urban</span>';
-  const W=300,H=180,L=26,R=8,T=8,B=20;
+  const W=300,H=180,L=26,R=16,T=8,B=20;
   const x=y=>L+(W-L-R)*(y-2012)/(2025-2012), yy=v=>T+(H-T-B)*(1-v/100);
   let out='';
   for(const g of GEOS){
