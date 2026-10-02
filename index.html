@@ -13,6 +13,7 @@
   --bg:#f5f6f2; --panel:#ffffff; --ink:#1d2b33; --muted:#5b6a70; --rule:#d9ded8;
   --accent:#1f5f6b; --accent-soft:#d6e7e8; --hi:#c9811f; --hi-soft:#f6e6cc; --warn:#a34a2a;
   --l0:#e5e9e6; --l1:#c4d8d6; --l2:#8fbab6; --l3:#4f9893; --l4:#24706d; --l5:#174f57; --l6:#0f3640;
+  --s1:#1f5f6b; --s2:#c9811f; --s3:#7a4b8c; --s4:#a34a2a;
   --display:"Newsreader", Georgia, "Times New Roman", serif;
   --body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -20,12 +21,24 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#12191c; --panel:#1a2327; --ink:#e4ebe9; --muted:#9db0b2; --rule:#2e3b40;
   --accent:#7fc3c4; --accent-soft:#21393d; --hi:#e8a548; --hi-soft:#3a2e1a; --warn:#e58a68;
-  --l0:#2a3539; --l1:#2f4c50; --l2:#3a6a6c; --l3:#4f8f8d; --l4:#6eb1ab; --l5:#9ed0c9; --l6:#cdebe5; color-scheme:dark}}
+  --l0:#2a3539; --l1:#2f4c50; --l2:#3a6a6c; --l3:#4f8f8d; --l4:#6eb1ab; --l5:#9ed0c9; --l6:#cdebe5;
+  --s1:#7fc3c4; --s2:#e8a548; --s3:#c19ad6; --s4:#e58a68; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#12191c; --panel:#1a2327; --ink:#e4ebe9; --muted:#9db0b2; --rule:#2e3b40;
   --accent:#7fc3c4; --accent-soft:#21393d; --hi:#e8a548; --hi-soft:#3a2e1a; --warn:#e58a68;
-  --l0:#2a3539; --l1:#2f4c50; --l2:#3a6a6c; --l3:#4f8f8d; --l4:#6eb1ab; --l5:#9ed0c9; --l6:#cdebe5; color-scheme:dark}
+  --l0:#2a3539; --l1:#2f4c50; --l2:#3a6a6c; --l3:#4f8f8d; --l4:#6eb1ab; --l5:#9ed0c9; --l6:#cdebe5;
+  --s1:#7fc3c4; --s2:#e8a548; --s3:#c19ad6; --s4:#e58a68; color-scheme:dark}
 *{box-sizing:border-box}
+.glance{margin-top:22px}
+.glance h2{font:600 22px/1.2 var(--display);margin:0 0 4px}
+.glance .sub{font-size:13.5px;color:var(--muted);margin:0 0 10px;max-width:80ch}
+.multiples{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mini{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:10px 12px 6px;cursor:pointer;min-width:0}
+.mini:hover,.mini:focus-visible{border-color:var(--accent);outline:none}
+.mini.on{border-color:var(--hi);box-shadow:0 0 0 1px var(--hi)}
+.mini h3{font:600 14px/1.3 var(--body);margin:0 0 2px}
+@media (max-width:860px){.multiples{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.multiples{grid-template-columns:1fr}}
 body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);margin:0}
 .wrap{max-width:1040px;margin:0 auto;padding-inline:20px;padding-block:28px 60px}
 header h1{font:600 clamp(28px,4vw,40px)/1.1 var(--display);margin:0 0 6px;text-wrap:balance;letter-spacing:-.01em}
@@ -82,6 +95,13 @@ footer{margin-top:28px;font-size:12.5px;color:var(--muted)}
   <h1>ASER Pakistan Data Explorer</h1>
   <p>Learning levels and enrolment from the Annual Status of Education Report (ASER) Pakistan, the citizen-led household survey that tests children aged 5–16 at home in reading and arithmetic. Every number is read from a national report table, and the page it came from is shown with it. This is an independent tool, not an ITA/ASER Pakistan product.</p>
 </header>
+
+<section class="glance" aria-labelledby="glance-h">
+  <h2 id="glance-h">Province trends at a glance</h2>
+  <p class="sub">Class 5 children who can read a Class 2 story, read English sentences, and do 2-digit division, and the share of children aged 6–16 out of school. Hollow dots are 2025 (rural and urban combined, except AJK and GB). Gaps mean no comparable figure. Click a panel to explore that province below.</p>
+  <div class="legend" id="glance-legend" style="margin:0 0 10px"></div>
+  <div class="multiples" id="multiples"></div>
+</section>
 
 <div class="tabs" role="group" aria-label="Topic">
   <button id="tab-learn" aria-pressed="true">Learning levels</button>
@@ -347,6 +367,39 @@ function renderLadder(){
   }
 }
 
+// ---- small multiples: four headline series for every geography
+const GSER=[['Read a story (Class 5)','var(--s1)',(y,g)=>learn(y,g,'language',5,4)],
+            ['English sentences (Class 5)','var(--s2)',(y,g)=>learn(y,g,'english',5,4)],
+            ['2-digit division (Class 5)','var(--s3)',(y,g)=>learn(y,g,'arithmetic',5,6)],
+            ['Out of school, ages 6–16','var(--s4)',(y,g)=>enrol(y,g,'6-16','oos')]];
+function renderMultiples(){
+  document.getElementById('glance-legend').innerHTML=GSER.map(s=>'<span><i style="background:'+s[1]+'"></i>'+esc(s[0])+'</span>').join('')+'<span><i style="background:var(--panel);border:2px solid var(--muted)"></i>2025, rural + urban</span>';
+  const W=300,H=180,L=26,R=8,T=8,B=20;
+  const x=y=>L+(W-L-R)*(y-2012)/(2025-2012), yy=v=>T+(H-T-B)*(1-v/100);
+  let out='';
+  for(const g of GEOS){
+    let s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(GEOLABEL[g])+' trends">';
+    for(const t of [0,50,100]){ s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy(t)+'" y2="'+yy(t)+'" stroke="var(--rule)"/><text x="'+(L-5)+'" y="'+(yy(t)+3.5)+'" text-anchor="end" font-size="9.5" class="m">'+t+'</text>'; }
+    for(const y of [2012,2015,2018,2021,2025]) s+='<text x="'+x(y)+'" y="'+(H-5)+'" text-anchor="middle" font-size="9.5" class="m">'+y+'</text>';
+    for(const [name,col,f] of GSER){
+      const pts=YEARS.map(y=>{const r=f(y,g); return {y,v:r.v,ru:!!(r.rec&&r.rec.f.includes('ru'))};});
+      // rural line, broken wherever a round has no comparable value
+      let d='',pen=false;
+      for(const p of pts){ if(p.ru) continue; if(p.v==null){pen=false;continue;} d+=(pen?'L':'M')+x(p.y).toFixed(1)+' '+yy(p.v).toFixed(1); pen=true; }
+      if(d) s+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.8" stroke-linejoin="round"/>';
+      for(const p of pts){ if(p.v==null) continue;
+        s+='<circle cx="'+x(p.y).toFixed(1)+'" cy="'+yy(p.v).toFixed(1)+'" r="'+(p.ru?3.2:2.2)+'" fill="'+(p.ru?'var(--panel)':col)+'" stroke="'+col+'" stroke-width="'+(p.ru?1.6:0)+'"><title>'+esc(name)+', '+p.y+': '+fmt(p.v)+'%</title></circle>'; }
+    }
+    s+='</svg>';
+    out+='<div class="mini'+(g===S.geo?' on':'')+'" tabindex="0" role="button" data-geo="'+esc(g)+'"><h3>'+esc(GEOLABEL[g])+'</h3>'+s+'</div>';
+  }
+  const el=document.getElementById('multiples'); el.innerHTML=out;
+  el.querySelectorAll('.mini').forEach(n=>{
+    const go=()=>{S.geo=n.dataset.geo; if(!geosFor(S.year).includes(S.geo)){ const ys=YEARS.filter(y=>GEOS.includes(S.geo)&&(S.mode==='learn'?LIX[y+'|'+S.geo+'|'+S.subj+'|'+S.cls]:EIX[y+'|'+S.geo+'|'+S.band])); if(ys.length) S.year=ys[ys.length-1]; } save(); render(); document.getElementById('q').scrollIntoView({behavior:'smooth',block:'start'}); };
+    n.addEventListener('click',go); n.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}});
+  });
+}
+
 function renderSources(){
   let t='<table><thead><tr><th>Survey round</th><th>National report</th></tr></thead><tbody>';
   for(const y of YEARS) t+='<tr><td>'+y+(y===2025?' (rural + urban)':'')+'</td><td><a href="'+URL[y]+'" target="_blank" rel="noopener">'+esc(URL[y].split('/').pop())+'</a></td></tr>';
@@ -366,7 +419,9 @@ function render(){
   document.getElementById('tab-learn').setAttribute('aria-pressed',S.mode==='learn');
   document.getElementById('tab-enrol').setAttribute('aria-pressed',S.mode==='enrol');
   renderQ(); renderAnswer(); renderRank(); renderTrend(); renderLadder();
+  document.querySelectorAll('.mini').forEach(n=>n.classList.toggle('on',n.dataset.geo===S.geo));
 }
+renderMultiples();
 renderSources(); render();
 })();
 </script>
